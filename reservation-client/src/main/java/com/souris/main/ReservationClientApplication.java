@@ -12,14 +12,15 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.cloud.netflix.zuul.EnableZuulProxy;
 import org.springframework.cloud.stream.annotation.EnableBinding;
-import org.springframework.cloud.stream.messaging.Source;
+import org.springframework.cloud.stream.annotation.Output;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.hateoas.Resources;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import org.springframework.integration.support.MessageBuilder;
-import org.springframework.messaging.Message;
+import org.springframework.integration.annotation.Gateway;
+import org.springframework.integration.annotation.MessagingGateway;
+import org.springframework.messaging.MessageChannel;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -29,8 +30,14 @@ import org.springframework.web.client.RestTemplate;
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 
 
+interface ReservationClientChannels {
+
+	@Output
+	MessageChannel output();
+}
+
 @EnableCircuitBreaker
-@EnableBinding(Source.class)
+@EnableBinding(ReservationChannels.class)
 @EnableZuulProxy
 @EnableDiscoveryClient
 @SpringBootApplication
@@ -45,6 +52,19 @@ public class ReservationClientApplication {
 	}
 }
 
+@MessagingGateway
+interface ReservationWriter {
+
+    @Gateway(requestChannel = "output")
+    void write(String rn);
+}
+
+interface ReservationChannels {
+
+    @Output
+    MessageChannel output();
+}
+
 @RestController
 @RequestMapping("/reservations")
 class ReservationGatewayRestController {
@@ -52,17 +72,23 @@ class ReservationGatewayRestController {
 	@Autowired
 	private RestTemplate restTemplate;
 	
+	private final ReservationWriter reservationWriter;
+	//@Autowired
+	//private ReservationClientChannels source;
 	@Autowired
-	private Source source;
-	
+    public ReservationGatewayRestController(ReservationWriter reservationWriter) {
+       
+        this.reservationWriter = reservationWriter;
+    }
 	public Collection<String> getReservationNamesFallback() {
 		return new ArrayList<>();
 	}
 	
 	@RequestMapping(method = RequestMethod.POST)
 	public void writeReservation(@RequestBody Reservation r) {
-		Message<String> msg = MessageBuilder.withPayload(r.getReservationName()).build();
-		this.source.output().send(msg);
+		//Message<String> msg = MessageBuilder.withPayload(r.getReservationName()).build();
+		//this.source.output().send(msg);
+		this.reservationWriter.write(r.getReservationName());
 	}
 	
 	@HystrixCommand(fallbackMethod = "getReservationNamesFallback")

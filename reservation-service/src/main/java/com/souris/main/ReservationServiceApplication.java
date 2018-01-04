@@ -7,20 +7,35 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.stream.annotation.EnableBinding;
+import org.springframework.cloud.stream.annotation.Input;
+import org.springframework.cloud.stream.messaging.Sink;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 import org.springframework.data.rest.core.annotation.RestResource;
+import org.springframework.integration.annotation.IntegrationComponentScan;
+import org.springframework.integration.annotation.MessageEndpoint;
+import org.springframework.integration.annotation.ServiceActivator;
+import org.springframework.messaging.MessageChannel;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+interface ReservationChannels {
+	@Input
+	MessageChannel input();
+}
+
 @EnableDiscoveryClient
+@IntegrationComponentScan
+@EnableBinding(ReservationChannels.class)
 @SpringBootApplication
 public class ReservationServiceApplication {
 
@@ -35,18 +50,33 @@ public class ReservationServiceApplication {
 	}
 }
 
+@MessageEndpoint
+class ReservationProcessor {
+
+	private final ReservationRepository reservationRepository;
+
+	@ServiceActivator(inputChannel = "input")
+	public void acceptNewReservations(String rn) {
+		this.reservationRepository.save(new Reservation(rn));
+	}
+
+	@Autowired
+	public ReservationProcessor(ReservationRepository reservationRepository) {
+		this.reservationRepository = reservationRepository;
+	}
+}
+
 @RestController
 class MessageRestController {
-	
+
 	@Value("${message}")
 	private String msg;
-	
+
 	@RequestMapping("/message")
 	String message() {
 		return this.msg;
 	}
 }
-
 
 @RepositoryRestResource
 interface ReservationRepository extends JpaRepository<Reservation, Long> {
@@ -66,7 +96,7 @@ class Reservation {
 	public Reservation() {
 
 	}
-	
+
 	public Reservation(String reservationName) {
 		this.reservationName = reservationName;
 	}

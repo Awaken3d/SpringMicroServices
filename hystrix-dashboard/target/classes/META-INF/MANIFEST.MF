@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Implementation-Title: hystrix-dashboard
+Implementation-Version: 0.0.1-SNAPSHOT
+Built-By: nick
+Implementation-Vendor-Id: com.souris
+Build-Jdk: 1.8.0_73
+Implementation-URL: http://projects.spring.io/spring-boot/spring-boot-
+ starter-parent/hystrix-dashboard/
+Created-By: Maven Integration for Eclipse
+
